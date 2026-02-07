@@ -1,0 +1,19 @@
+# Secrets — NEVER commit
+.env
+certs/
+synapse/signing.key
+
+# Generated configs contain secrets
+synapse/homeserver.yaml
+synapse/log.config
+coturn/turnserver.conf
+nginx/nginx.conf
+docker-compose.yml
+
+# Docker volumes
+postgres-data/
+synapse-media/
+
+# OS junk
+.DS_Store
+Thumbs.db
