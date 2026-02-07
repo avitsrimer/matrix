@@ -269,6 +269,37 @@ volumes:
 
 ---
 
+## Deployment Mode: Domain-less with Self-Signed Cert
+
+For maximum privacy (no domain registration paper trail), the server can run on a bare IP with a self-signed CA. This does **not** break E2E encryption — Olm/Megolm is independent of TLS.
+
+**Changes vs. domain-based setup**:
+
+| Component | Domain Setup | IP + Self-Signed Setup |
+|-----------|-------------|----------------------|
+| **Caddy** | Auto Let's Encrypt | **Replaced with Nginx** (or Caddy with custom cert) — no ACME needed |
+| **TLS cert** | Automatic | Generate your own CA + server cert; distribute CA to friends |
+| **Synapse `server_name`** | `yourdomain.com` | Your server IP (e.g., `203.0.113.42`) |
+| **TURN** | `turn:yourdomain.com` | `turn:203.0.113.42` with TURNS on port 443 |
+| **Federation** | Optional | **Disabled** (no domain = no federation anyway) |
+| **Client config** | Auto-discovery via `.well-known` | Manual: friends enter `https://<IP>:443` and import your CA cert |
+
+**Self-signed CA generation (planned)**:
+```bash
+# Will be scripted in setup.sh
+openssl genrsa -out ca.key 4096
+openssl req -new -x509 -key ca.key -out ca.crt -days 3650 -subj "/CN=MatrixCA"
+openssl genrsa -out server.key 2048
+openssl req -new -key server.key -out server.csr -subj "/CN=<SERVER_IP>"
+openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt -days 3650
+```
+
+Friends receive `ca.crt` via a trusted channel and install it on their devices.
+
+See [ProtocolAnalysis.md](ProtocolAnalysis.md) for detailed traffic analysis, DPI risks, and why self-signed certs don't affect E2E security.
+
+---
+
 ## Optional Enhancements (Future)
 
 - **Element Web**: Add a container serving Element Web UI so friends don't need to install anything — just visit `chat.yourdomain.com` in a browser
