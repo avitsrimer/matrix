@@ -139,6 +139,13 @@ SANEOF
     ok "CA certificate:     $CERT_DIR/ca.crt"
     ok "Server certificate: $CERT_DIR/server.crt"
     ok "Server key:         $CERT_DIR/server.key"
+
+    echo ""
+    warn "БЕЗОПАСНОСТЬ: ca.key — приватный ключ вашего CA."
+    warn "Рекомендуется скопировать его на флешку и удалить с сервера."
+    warn "Он понадобится только для перегенерации серверного сертификата."
+    warn "  cp $CERT_DIR/ca.key /путь/к/флешке/ && rm $CERT_DIR/ca.key"
+    echo ""
 fi
 
 # ---- Generate Synapse homeserver.yaml ----

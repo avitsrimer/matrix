@@ -338,3 +338,47 @@ This setup leaves the regulator with:
 - No message content (E2E)
 - No call content (SRTP)
 - Only traffic volume and timing patterns as potential fingerprinting vectors
+
+---
+
+## What Happens If the CA Private Key (`ca.key`) Is Compromised
+
+### Threat: `ca.crt` intercepted (public cert only)
+
+**Impact: negligible.** This is the public half — it's distributed to all participants by design. An attacker learns the CA name and server IP from the Subject Alt Name, but cannot forge certificates or decrypt anything.
+
+### Threat: `ca.key` stolen (private CA key)
+
+**Impact: serious at TLS layer, but E2E encryption remains intact.**
+
+With `ca.key`, an attacker can issue a fraudulent server certificate trusted by all clients that imported the CA, enabling a full TLS man-in-the-middle:
+
+```
+Client ──► [Attacker with forged cert] ──► Real server
+            issues server.crt signed         attacker proxies
+            by stolen ca.key                 all traffic through
+```
+
+| What the attacker gains | Compromised? | Why |
+|------------------------|-------------|-----|
+| TLS man-in-the-middle | **Yes** | Forged cert is trusted by clients |
+| Login passwords | **Yes** | Sent inside TLS during auth |
+| Room membership, presence, metadata | **Yes** | Visible inside TLS layer |
+| E2E-encrypted message content | **No** | Olm/Megolm keys exist only on devices; independent of TLS |
+| Voice/video call content | **No** | WebRTC DTLS-SRTP keys negotiated separately |
+| Ability to forge messages from users | **No** | E2E device signatures prevent impersonation |
+| Non-E2E room content (if any exist) | **Yes** | Plaintext inside TLS |
+
+### Recovery procedure
+
+1. Delete `certs/` directory
+2. Re-run `setup.sh` — generates new CA + server certificate
+3. Distribute new `ca.crt` to all participants via trusted channel
+4. All users change their passwords
+5. E2E keys do NOT need to be rotated — they were never compromised
+
+### Prevention
+
+- `ca.key` has permission `600` (owner-read only) — set by `setup.sh`
+- `ca.key` should ideally be moved offline after generating the server cert
+- If the server is at risk of seizure, consider deleting `ca.key` from it entirely and keeping it on a separate encrypted USB drive for future cert renewal only
