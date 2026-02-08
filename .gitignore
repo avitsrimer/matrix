@@ -8,6 +8,7 @@ synapse/homeserver.yaml
 synapse/log.config
 coturn/turnserver.conf
 nginx/nginx.conf
+element/config.json
 docker-compose.yml
 
 # Docker volumes

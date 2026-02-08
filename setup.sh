@@ -389,9 +389,30 @@ http {
             proxy_send_timeout 600s;
         }
 
-        # Default: deny
+        # Default: deny (on Matrix API port)
         location / {
             return 404;
+        }
+    }
+
+    # --- Element Web (browser client) on port 8443 ---
+    server {
+        listen 8443 ssl http2;
+
+        ssl_certificate     /certs/server.crt;
+        ssl_certificate_key /certs/server.key;
+
+        ssl_protocols TLSv1.3;
+        ssl_prefer_server_ciphers off;
+
+        add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options SAMEORIGIN always;
+        add_header Content-Security-Policy "frame-ancestors 'self'" always;
+
+        location / {
+            proxy_pass http://element:80;
+            proxy_set_header Host \$host;
         }
     }
 
@@ -404,6 +425,39 @@ http {
 NGXEOF
 
 ok "Generated nginx/nginx.conf"
+
+# ---- Generate Element Web config ----
+ELEMENT_DIR="$SCRIPT_DIR/element"
+mkdir -p "$ELEMENT_DIR"
+
+cat > "$ELEMENT_DIR/config.json" <<ELEMEOF
+{
+    "default_server_config": {
+        "m.homeserver": {
+            "base_url": "https://$SERVER_IP",
+            "server_name": "$SERVER_IP"
+        }
+    },
+    "disable_custom_urls": true,
+    "disable_guests": true,
+    "disable_3pid_login": true,
+    "brand": "Element",
+    "default_country_code": "RU",
+    "show_labs_settings": false,
+    "default_theme": "dark",
+    "room_directory": {
+        "servers": []
+    },
+    "setting_defaults": {
+        "breadcrumbs": true,
+        "UIFeature.feedback": false,
+        "UIFeature.registration": false,
+        "UIFeature.communities": false
+    }
+}
+ELEMEOF
+
+ok "Generated element/config.json"
 
 # ---- Generate docker-compose.yml ----
 cat > "$SCRIPT_DIR/docker-compose.yml" <<DCEOF
@@ -462,11 +516,21 @@ services:
         condition: service_healthy
     ports:
       - "443:443"
+      - "8443:8443"
       - "80:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./certs/server.crt:/certs/server.crt:ro
       - ./certs/server.key:/certs/server.key:ro
+    networks:
+      - matrix-internal
+
+  # --- Element Web (browser client) ---
+  element:
+    image: vectorim/element-web:latest
+    restart: unless-stopped
+    volumes:
+      - ./element/config.json:/app/config.json:ro
     networks:
       - matrix-internal
 
@@ -529,6 +593,8 @@ cat <<MSGEOF
   • Android: Google Play → "Element Messenger"
   • iPhone:  App Store  → "Element Messenger"
   • Windows/Mac/Linux: https://element.io/download
+  • Браузер (ничего ставить не нужно!):
+    Открой https://$SERVER_IP:8443
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   ШАГ 2: Установи сертификат (ВАЖНО — без этого не подключишься)
@@ -604,6 +670,10 @@ cat <<MSGEOF
   • Не пересылай файл ca.crt по открытым каналам —
     лучше передай лично или через проверенный мессенджер
   • Если потеряешь доступ — напиши мне, создам новый аккаунт
+  • Для браузера: при первом входе на https://$SERVER_IP:8443
+    браузер покажет предупреждение — нажми «Дополнительно»
+    → «Перейти на сайт». Или установи сертификат (шаг 2)
+    и предупреждения не будет
 
 MSGEOF
 INFOEOF
@@ -660,9 +730,11 @@ echo "  3. Create your admin user:"
 echo "       ./scripts/create-user.sh yourusername --admin"
 echo "  4. Create accounts for friends:"
 echo "       ./scripts/create-user.sh friendname"
-echo "  5. Show connection instructions:"
+echo "  5. Element Web (browser) is at:"
+echo "       https://$SERVER_IP:8443"
+echo "  6. Show connection instructions:"
 echo "       ./scripts/show-connection-info.sh"
-echo "  6. Send friends the file:  certs/ca.crt"
+echo "  7. Send friends the file:  certs/ca.crt"
 echo ""
 
 # ---- Auto-show connection info ----
