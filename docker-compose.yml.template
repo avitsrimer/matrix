@@ -1,0 +1,97 @@
+# =============================================================
+#  Matrix Private Server — Docker Compose
+# =============================================================
+
+services:
+  # --- PostgreSQL ---
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: %%POSTGRES_USER%%
+      POSTGRES_PASSWORD: %%POSTGRES_PASSWORD%%
+      POSTGRES_DB: %%POSTGRES_DB%%
+      POSTGRES_INITDB_ARGS: "--auth-host=md5"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U %%POSTGRES_USER%% -d %%POSTGRES_DB%%"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - matrix-internal
+
+  # --- Synapse (Matrix homeserver) ---
+  synapse:
+    image: matrixdotorg/synapse:latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./synapse/homeserver.yaml:/data/homeserver.yaml:ro
+      - ./synapse/log.config:/data/log.config:ro
+      - ./synapse/signing.key:/data/signing.key:ro
+      - synapse-media:/data/media_store
+    healthcheck:
+      test: ["CMD", "curl", "-fSs", "http://localhost:8008/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - matrix-internal
+
+  # --- Nginx (TLS reverse proxy) ---
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    depends_on:
+      synapse:
+        condition: service_healthy
+    ports:
+      - "443:443"
+      - "8443:8443"
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs/server.crt:/certs/server.crt:ro
+      - ./certs/server.key:/certs/server.key:ro
+    networks:
+      - matrix-internal
+
+  # --- Element Web (browser client) ---
+  element:
+    image: vectorim/element-web:latest
+    restart: unless-stopped
+    volumes:
+      - ./element/config.json:/app/config.json:ro
+    networks:
+      - matrix-internal
+
+  # --- Coturn (TURN/STUN for voice/video) ---
+  coturn:
+    image: coturn/coturn:latest
+    restart: unless-stopped
+    ports:
+      - "3478:3478"
+      - "3478:3478/udp"
+      - "5349:5349"
+      - "5349:5349/udp"
+      - "%%TURN_MIN_PORT%%-%%TURN_MAX_PORT%%:%%TURN_MIN_PORT%%-%%TURN_MAX_PORT%%/udp"
+    volumes:
+      - ./coturn/turnserver.conf:/etc/turnserver.conf:ro
+      - ./certs/server.crt:/certs/server.crt:ro
+      - ./certs/server.key:/certs/server.key:ro
+    command: ["-c", "/etc/turnserver.conf"]
+    networks:
+      - matrix-internal
+
+volumes:
+  postgres-data:
+  synapse-media:
+
+networks:
+  matrix-internal:
+    driver: bridge

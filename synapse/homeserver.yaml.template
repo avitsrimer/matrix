@@ -1,0 +1,81 @@
+# =============================================================
+#  Synapse homeserver — private, no federation, maximum security
+# =============================================================
+
+server_name: "%%SERVER_IP%%"
+pid_file: /data/homeserver.pid
+public_baseurl: "https://%%SERVER_IP%%/"
+
+listeners:
+  - port: 8008
+    tls: false
+    type: http
+    x_forwarded: true
+    bind_addresses: ['0.0.0.0']
+    resources:
+      - names: [client, keys]
+        compress: false
+
+# --- Database (PostgreSQL) ---
+database:
+  name: psycopg2
+  args:
+    user: "%%POSTGRES_USER%%"
+    password: "%%POSTGRES_PASSWORD%%"
+    database: "%%POSTGRES_DB%%"
+    host: postgres
+    port: 5432
+    cp_min: 2
+    cp_max: 5
+
+# --- Logging (minimal — no IPs) ---
+log_config: "/data/log.config"
+
+# --- Security ---
+registration_shared_secret: "%%SYNAPSE_REGISTRATION_SHARED_SECRET%%"
+enable_registration: false
+enable_registration_without_verification: false
+macaroon_secret_key: "%%SYNAPSE_MACAROON_SECRET%%"
+form_secret: "%%SYNAPSE_FORM_SECRET%%"
+signing_key_path: "/data/signing.key"
+suppress_key_server_warning: true
+
+# --- Federation OFF ---
+federation_domain_whitelist: []
+allow_public_rooms_over_federation: false
+allow_public_rooms_without_auth: false
+limit_remote_rooms:
+  enabled: true
+  complexity: 0
+
+# --- TURN (voice/video) ---
+turn_uris:
+  - "turns:%%SERVER_IP%%:5349?transport=tcp"
+  - "turn:%%SERVER_IP%%:3478?transport=udp"
+turn_shared_secret: "%%TURN_SHARED_SECRET%%"
+turn_user_lifetime: 1h
+turn_allow_guests: false
+
+# --- Media ---
+enable_media_repo: true
+max_upload_size: "50M"
+media_store_path: "/data/media_store"
+url_preview_enabled: false
+
+# --- Rate limiting (relaxed for private server) ---
+rc_message:
+  per_second: 10
+  burst_count: 50
+rc_login:
+  address:
+    per_second: 1
+    burst_count: 5
+  account:
+    per_second: 1
+    burst_count: 5
+
+# --- Misc ---
+report_stats: false
+enable_metrics: false
+trusted_key_servers: []
+serve_server_wellknown: true

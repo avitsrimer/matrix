@@ -1,0 +1,24 @@
+{
+    "default_server_config": {
+        "m.homeserver": {
+            "base_url": "https://%%SERVER_IP%%",
+            "server_name": "%%SERVER_IP%%"
+        }
+    },
+    "disable_custom_urls": true,
+    "disable_guests": true,
+    "disable_3pid_login": true,
+    "brand": "Element",
+    "default_country_code": "RU",
+    "show_labs_settings": false,
+    "default_theme": "dark",
+    "room_directory": {
+        "servers": []
+    },
+    "setting_defaults": {
+        "breadcrumbs": true,
+        "UIFeature.feedback": false,
+        "UIFeature.registration": false,
+        "UIFeature.communities": false
+    }
+}

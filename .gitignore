@@ -3,9 +3,8 @@
 certs/
 synapse/signing.key
 
-# Generated configs contain secrets
+# Rendered configs (generated from *.template by setup.sh)
 synapse/homeserver.yaml
-synapse/log.config
 coturn/turnserver.conf
 nginx/nginx.conf
 element/config.json
